@@ -1,0 +1,94 @@
+# Wild Rydes API Auth Management
+service: wild-rydes-api-auth
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  stage: "${opt:stage, env:SLS_STAGE, 'dev'}"
+  log_level: "${env:LOG_LEVEL, 'INFO'}"
+
+  pythonRequirements:
+    dockerizePip: false
+
+  url_base_path: /key
+
+
+provider:
+  name: aws
+  runtime: python3.6
+  stage: ${self:custom.stage}
+  region: ${self:custom.region}
+  cfnRole: "arn:aws:iam::${env:AWS_ACCOUNT}:role/CloudFormationDeployRole"
+  environment:
+    LOG_LEVEL: ${self:custom.log_level}
+  stackTags:
+    x-service: wild-rydes-api-auth
+    x-stack: ${self:service}-${self:provider.stage}
+  environment:
+    DDB_TABLE_NAME:
+      Ref: KeyTable
+    DDB_HASH_KEY: "Id"
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:DeleteItem
+      Resource:
+        - Ref: KeyTable
+
+functions:
+  CreateKey:
+    handler: handlers/create_api_key.handler
+    description: "Create an API key"
+    memorySize: 128
+    timeout: 5
+    events:
+      - http:
+          path: "${self:custom.url_base_path}"
+          method: post
+
+  GetKey:
+    handler: handlers/get_api_key.handler
+    description: "Get an API key"
+    memorySize: 128
+    timeout: 5
+    events:
+      - http:
+          path: "${self:custom.url_base_path}/${id}"
+          method: get
+
+  UpdateKey:
+    handler: handlers/update_api_key.handler
+    description: "Update an API key"
+    memorySize: 128
+    timeout: 5
+    events:
+      - http:
+          path: "${self:custom.url_base_path}/${id}"
+          method: put
+
+  DeleteKey:
+    handler: handlers/delete_api_key.handler
+    description: "delete an API key"
+    memorySize: 128
+    timeout: 5
+    events:
+      - http:
+          path: "${self:custom.url_base_path}/${id}"
+          method: delete
+
+resources:
+  Resources:
+    KeyTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        KeySchema:
+          - AttributeName: "Id"
+            KeyType: "HASH"
+            AttributeDefinitions:
+          - AttributeName: "Id"
+            AttributeType: "S"
+        BillingMode: PAY_PER_REQUEST
+
