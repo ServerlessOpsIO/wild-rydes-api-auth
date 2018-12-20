@@ -6,12 +6,14 @@ plugins:
 
 custom:
   stage: "${opt:stage, env:SLS_STAGE, 'dev'}"
+  region: "${opt:region, 'us-east-2'}"
   log_level: "${env:LOG_LEVEL, 'INFO'}"
 
   pythonRequirements:
     dockerizePip: false
 
   url_base_path: /key
+  ddb_hash_key: "Id"
 
 
 provider:
@@ -22,13 +24,12 @@ provider:
   cfnRole: "arn:aws:iam::${env:AWS_ACCOUNT}:role/CloudFormationDeployRole"
   environment:
     LOG_LEVEL: ${self:custom.log_level}
+    DDB_TABLE_NAME:
+      Ref: KeyTable
+    DDB_HASH_KEY: "${self:custom.ddb_hash_key}"
   stackTags:
     x-service: wild-rydes-api-auth
     x-stack: ${self:service}-${self:provider.stage}
-  environment:
-    DDB_TABLE_NAME:
-      Ref: KeyTable
-    DDB_HASH_KEY: "Id"
   iamRoleStatements:
     - Effect: "Allow"
       Action:
@@ -36,7 +37,9 @@ provider:
         - dynamodb:PutItem
         - dynamodb:DeleteItem
       Resource:
-        - Ref: KeyTable
+        - Fn::GetAtt:
+            - KeyTable
+            - Arn
 
 functions:
   CreateKey:
@@ -56,7 +59,7 @@ functions:
     timeout: 5
     events:
       - http:
-          path: "${self:custom.url_base_path}/${id}"
+          path: "${self:custom.url_base_path}/{id}"
           method: get
 
   UpdateKey:
@@ -66,7 +69,7 @@ functions:
     timeout: 5
     events:
       - http:
-          path: "${self:custom.url_base_path}/${id}"
+          path: "${self:custom.url_base_path}/{id}"
           method: put
 
   DeleteKey:
@@ -76,7 +79,7 @@ functions:
     timeout: 5
     events:
       - http:
-          path: "${self:custom.url_base_path}/${id}"
+          path: "${self:custom.url_base_path}/{id}"
           method: delete
 
 resources:
@@ -85,10 +88,9 @@ resources:
       Type: AWS::DynamoDB::Table
       Properties:
         KeySchema:
-          - AttributeName: "Id"
+          - AttributeName: "${self:custom.ddb_hash_key}"
             KeyType: "HASH"
-            AttributeDefinitions:
-          - AttributeName: "Id"
+        AttributeDefinitions:
+          - AttributeName: "${self:custom.ddb_hash_key}"
             AttributeType: "S"
         BillingMode: PAY_PER_REQUEST
-
