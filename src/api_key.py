@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+
 '''
-API Key
+Author: Tom McLaughlin
+Email: tom@serverlessops.io
+
+Description: API Keys
 '''
 
 from datetime import datetime
-import json
 import secrets
 
 TOKEN_BYTES = 32
@@ -36,33 +39,10 @@ def get_from_ddb_item(item: dict) -> object:
     }
     return ApiKey(**d)
 
-class ApiKeyErrorBase(Exception):
-    '''Base exception class'''
-    def __init__(self, message, identity) -> None:
-        message = 'API Key Id already exists'
-        super().__init__(message)
-
-        self.identity = identity
-
-    def json(self) -> dict:
-        '''Return error as JSON'''
-        d = {
-            'ErrorType': self.__class__.__name__,
-            'ErrorMessage': self.message,
-            "Id": self.identity
-        }
-        return json.dumps(d)
-
-class ApiKeyExistsError(ApiKeyErrorBase):
-    '''Key already exists'''
-    def __init__(self, identity) -> None:
-        message = "API key already exists"
-        super().__init__(message)
-
 
 class ApiKey:
     '''API key class'''
-    def __init__(self, identity: str, key: str, date_time=None, active=True, ttl=0) -> None:
+    def __init__(self, identity: str, key: str, date_time = None, active: bool = True, ttl=0) -> None:
         self._identity = identity
         self._key = key
         self._active = active
@@ -72,38 +52,43 @@ class ApiKey:
         else:
             self._date_time = datetime.utcnow()
 
-    def get_ddb_item(self):
-        '''Return representation of data as a DDB item.'''
-        d = {
-            ID: self.get_identity(),
-            KEY: self.get_key(),
-            DATETIME: self._get_date_time_timestamp(),
-            ACTIVE: self.get_active(),
-            TTL: self.get_ttl()
-        }
-        return d
-
     def _get_date_time_timestamp(self) -> int:
         '''Return date time as seconds since unix epoch'''
-        return int(self.get_date_time().timestamp())
+        return int(self.date_time.timestamp())
 
-    def get_active(self) -> str:
+    @property
+    def active(self) -> str:
         '''Return API key active'''
         return self._active
 
-    def get_date_time(self) -> datetime:
+    @property
+    def date_time(self) -> datetime:
         '''Return API datetime'''
         return self._date_time
 
-    def get_identity(self) -> str:
+    @property
+    def identity(self) -> str:
         '''Return API key identity'''
         return self._identity
 
-    def get_key(self) -> str:
+    @property
+    def key(self) -> str:
         '''Return API key key'''
         return self._key
 
-    def get_ttl(self) -> int:
+    @property
+    def ttl(self) -> int:
         '''Return API key ttl'''
         return self._ttl
+
+    def get_ddb_item(self):
+        '''Return representation of data as a DDB item.'''
+        d = {
+            ID: self.identity,
+            KEY: self.key,
+            DATETIME: self._get_date_time_timestamp(),
+            ACTIVE: self.active,
+            TTL: self.ttl
+        }
+        return d
 

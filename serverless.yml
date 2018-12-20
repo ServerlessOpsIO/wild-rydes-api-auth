@@ -14,6 +14,7 @@ custom:
 
   url_base_path: /key
   ddb_hash_key: "Id"
+  ddb_range_key: "DateTime"
 
 
 provider:
@@ -27,6 +28,7 @@ provider:
     DDB_TABLE_NAME:
       Ref: KeyTable
     DDB_HASH_KEY: "${self:custom.ddb_hash_key}"
+    DDB_RANGE_KEY: "${self:custom.ddb_range_key}"
   stackTags:
     x-service: wild-rydes-api-auth
     x-stack: ${self:service}-${self:provider.stage}
@@ -36,6 +38,7 @@ provider:
         - dynamodb:GetItem
         - dynamodb:PutItem
         - dynamodb:DeleteItem
+        - dynamodb:Query
       Resource:
         - Fn::GetAtt:
             - KeyTable
@@ -90,7 +93,11 @@ resources:
         KeySchema:
           - AttributeName: "${self:custom.ddb_hash_key}"
             KeyType: "HASH"
+          - AttributeName: "${self:custom.ddb_range_key}"
+            KeyType: "RANGE"
         AttributeDefinitions:
           - AttributeName: "${self:custom.ddb_hash_key}"
             AttributeType: "S"
+          - AttributeName: "${self:custom.ddb_range_key}"
+            AttributeType: "N"
         BillingMode: PAY_PER_REQUEST
