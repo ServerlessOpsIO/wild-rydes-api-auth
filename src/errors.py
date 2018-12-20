@@ -8,9 +8,29 @@ Description: Service error classes.
 '''
 
 import json
+from src import logging
+_logger = logging.get_logger(__name__)
+
 
 class ApiAuthSvcBaseError(Exception):
     '''Base exception class'''
+    def __init__(self, message) -> None:
+        super().__init__(message)
+
+        self.message = message
+
+    def get_dict(self) -> dict:
+        '''return error dictionary'''
+        d = {
+            'ErrorType': self.__class__.__name__,
+            'ErrorMessage': self.message,
+        }
+        return d
+
+    def get_json(self) -> str:
+        '''Return error as JSON'''
+        d = self.get_dict()
+        return json.dumps(d)
 
 
 class ApiAuthSvcRequestError(ApiAuthSvcBaseError):
@@ -18,24 +38,23 @@ class ApiAuthSvcRequestError(ApiAuthSvcBaseError):
     def __init__(self, message, identity) -> None:
         super().__init__(message)
 
-        self.message = message
         self.identity = identity
         self.error_code = 500
 
-    def get_json(self) -> dict:
-        '''Return error as JSON'''
-        d = {
-            'ErrorType': self.__class__.__name__,
-            'ErrorMessage': self.message,
-            'Id': self.identity
-        }
-        return json.dumps(d)
+    def get_dict(self) -> dict:
+        '''return error dictionary'''
+        d = super().get_dict()
+        d['Id'] = self.identity
+        return d
 
     def get_apig_response(self) -> dict:
         '''Return a response suitable for API Gateway'''
+        # We use get_dict() and not get_json() because we have a decorator
+        # that will serialize this for us.
+        _logger.exception(self)
         resp = {
             'statusCode': self.error_code,
-            'body': self.get_json()
+            'body': self.get_dict()
         }
         return resp
 

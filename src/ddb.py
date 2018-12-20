@@ -19,7 +19,7 @@ DDB_TABLE_NAME = os.environ.get('DDB_TABLE_NAME', '')
 DDB_HASH_KEY = os.environ.get('DDB_HASH_KEY', '')
 DDB_RANGE_KEY = os.environ.get('DDB_RANGE_KEY', '')
 
-class DynamoDBTableBaseError(ApiAuthSvcBaseError):
+class DynamoDBTableBaseError(Exception):
     '''Base exception class'''
 
 

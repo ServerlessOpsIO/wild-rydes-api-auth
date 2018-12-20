@@ -2,8 +2,9 @@
 
 import json
 
+from lambda_decorators import dump_json_body, load_json_body, on_exception
 from src import api_key, ddb, logging
-from src.errors import ApiAuthSvcBaseError, ApiAuthSvcInvalidRequestData, ApiAuthSvcDuplicateApiKeyError, ApiAuthSvcCreateApiKeyFailedError
+from src.errors import ApiAuthSvcDuplicateApiKeyError, ApiAuthSvcCreateApiKeyFailedError, ApiAuthSvcInvalidRequestData
 
 _logger = logging.get_logger(__name__)
 DDT = ddb.DynamoDBTable()
@@ -12,10 +13,10 @@ DDT = ddb.DynamoDBTable()
 def _get_api_key_id_from_event(event: dict) -> str:
     '''Get the API key identity from the event'''
     try:
-        body = json.loads(event.get('body'))
-        ident = body.get(DDT.hash_key)
-    except Exception:
-        raise ApiAuthSvcInvalidRequestData()
+        ident = event['body'].get(DDT.hash_key)
+    except Exception as e:
+        _logger.exception(e)
+        raise ApiAuthSvcInvalidRequestData
     return ident
 
 
@@ -25,37 +26,48 @@ def _check_key_exists(apik_id: str) -> bool:
     # and it already exists then I want you to know that. Maybe you don't need
     # another key? I'm not worried about leaking the existence, or lack of, a
     # key because because that's no important to us.
-    return DDT.check_item_exists(apik_id)
+    try:
+        return DDT.check_item_exists(apik_id)
+    except Exception as e:
+        _logger.info(e)
+        raise ApiAuthSvcCreateApiKeyFailedError()
+
+
+def _create_api_key(apik_id) -> dict:
+    '''Create API key in DDB'''
+    try:
+        apik = api_key.create(apik_id)
+        apkik_ddb_item = apik.get_ddb_item()
+        _write_key_to_ddb(apkik_ddb_item)
+    except Exception as e:
+        _logger.exception(e)
+        raise ApiAuthSvcCreateApiKeyFailedError(apik_id)
+
+    return apkik_ddb_item
+
 
 def _write_key_to_ddb(apik: dict) -> None:
     '''Write ApiKey object top DDB'''
     DDT.put_item(apik)
 
 
+@load_json_body
+@dump_json_body
+@on_exception(lambda e: e.get_apig_response())
 def handler(event, context):
     '''Function entry'''
     _logger.info('Event: {}'.format(json.dumps(event)))
 
-    try:
-        api_key_id = _get_api_key_id_from_event(event)
+    api_key_id = _get_api_key_id_from_event(event)
 
-        if not _check_key_exists(api_key_id):
-            apik = api_key.create(api_key_id)
-            apkik_ddb_item = apik.get_ddb_item()
-            _write_key_to_ddb(apkik_ddb_item)
-        else:
-            raise ApiAuthSvcDuplicateApiKeyError(api_key_id)
-    except ApiAuthSvcBaseError as e:
-        _logger.exception(e)
-        if hasattr(e, 'identity'):
-            identity = e.identity
-        else:
-            identity = None
-        return ApiAuthSvcCreateApiKeyFailedError(identity).get_apig_response()
+    if _check_key_exists(api_key_id):
+        raise ApiAuthSvcDuplicateApiKeyError(api_key_id)
+
+    apkik_ddb_item = _create_api_key(api_key_id)
 
     resp = {
         'statusCode': 201,
-        'body': json.dumps(apkik_ddb_item)
+        'body': apkik_ddb_item
     }
 
     # XXX: Make sure to scrub API KEY.
