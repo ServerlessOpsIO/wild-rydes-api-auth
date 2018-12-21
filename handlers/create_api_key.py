@@ -10,13 +10,38 @@ _logger = logging.get_logger(__name__)
 DDT = ddb.DynamoDBTable()
 
 
-def _get_api_key_id_from_event(event: dict) -> str:
+def _get_api_key_from_event(event: dict) -> str:
     '''Get the API key identity from the event'''
+    if event.get('pathParameters') is not None and event.get('httpMethod') == 'PUT':
+        return _get_api_key_id_from_event_params(event)
+    elif event.get('pathParameters') is None and event.get('httpMethod') == 'POST':
+        api_key_id = _get_api_key_id_from_event_body(event)
+        if _check_key_exists(api_key_id):
+            raise ApiAuthSvcDuplicateApiKeyError(api_key_id)
+        else:
+            return api_key_id
+    else:
+        raise ApiAuthSvcInvalidRequestData()
+
+
+
+def _get_api_key_id_from_event_params(event: dict) -> str:
+    '''Get the API key identity from the event params'''
+    try:
+        ident = event['pathParameters'].get(DDT.hash_key.lower())
+    except Exception as e:
+        _logger.exception(e)
+        raise ApiAuthSvcInvalidRequestData()
+    return ident
+
+
+def _get_api_key_id_from_event_body(event: dict) -> str:
+    '''Get the API key identity from the event body'''
     try:
         ident = event['body'].get(DDT.hash_key)
     except Exception as e:
         _logger.exception(e)
-        raise ApiAuthSvcInvalidRequestData
+        raise ApiAuthSvcInvalidRequestData()
     return ident
 
 
@@ -58,11 +83,7 @@ def handler(event, context):
     '''Function entry'''
     _logger.info('Event: {}'.format(json.dumps(event)))
 
-    api_key_id = _get_api_key_id_from_event(event)
-
-    if _check_key_exists(api_key_id):
-        raise ApiAuthSvcDuplicateApiKeyError(api_key_id)
-
+    api_key_id = _get_api_key_from_event(event)
     apkik_ddb_item = _create_api_key(api_key_id)
 
     resp = {

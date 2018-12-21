@@ -54,6 +54,9 @@ functions:
       - http:
           path: "${self:custom.url_base_path}"
           method: post
+      - http:
+          path: "${self:custom.url_base_path}/{id}"
+          method: put
 
   GetKey:
     handler: handlers/get_api_key.handler
@@ -72,7 +75,7 @@ functions:
     timeout: 5
     events:
       - http:
-          path: "${self:custom.url_base_path}/{id}"
+          path: "${self:custom.url_base_path}/{id}/{timestamp}"
           method: put
 
   DeleteKey:
