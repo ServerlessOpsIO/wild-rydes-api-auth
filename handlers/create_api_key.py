@@ -4,7 +4,7 @@ import json
 
 from lambda_decorators import dump_json_body, load_json_body, on_exception
 from src import api_key, ddb, logging
-from src.errors import ApiAuthSvcDuplicateApiKeyError, ApiAuthSvcCreateApiKeyFailedError, ApiAuthSvcInvalidRequestData
+from src.errors import ApiAuthSvcDuplicateApiKeyError, ApiAuthSvcCreateApiKeyFailedError, ApiAuthSvcInvalidRequestData, apig_responder
 
 _logger = logging.get_logger(__name__)
 DDT = ddb.DynamoDBTable()
@@ -53,7 +53,7 @@ def _write_key_to_ddb(apik: dict) -> None:
 
 @load_json_body
 @dump_json_body
-@on_exception(lambda e: e.get_apig_response())
+@on_exception(lambda e: apig_responder(e))
 def handler(event, context):
     '''Function entry'''
     _logger.info('Event: {}'.format(json.dumps(event)))

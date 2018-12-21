@@ -12,11 +12,18 @@ from src import logging
 _logger = logging.get_logger(__name__)
 
 
+def apig_responder(e):
+    '''helper function for responding to APIG when errors occur'''
+    _logger.exception(e)
+    if hasattr(e, 'get_apig_response'):
+        return e.get_apig_response()
+    return ApiAuthSvcRequestError('Error servicing request', None).get_apig_response()
+
+
 class ApiAuthSvcBaseError(Exception):
     '''Base exception class'''
     def __init__(self, message) -> None:
         super().__init__(message)
-
         self.message = message
 
     def get_dict(self) -> dict:
@@ -51,7 +58,6 @@ class ApiAuthSvcRequestError(ApiAuthSvcBaseError):
         '''Return a response suitable for API Gateway'''
         # We use get_dict() and not get_json() because we have a decorator
         # that will serialize this for us.
-        _logger.exception(self)
         resp = {
             'statusCode': self.error_code,
             'body': self.get_dict()
