@@ -60,32 +60,49 @@ functions:
 
   GetKey:
     handler: handlers/get_api_key.handler
-    description: "Get an API key"
+    description: "Get an API key or keys"
     memorySize: 128
     timeout: 5
     events:
       - http:
           path: "${self:custom.url_base_path}/{id}"
           method: get
+      - http:
+          path: "${self:custom.url_base_path}/{id}/{timestamp}"
+          method: get
 
   UpdateKey:
     handler: handlers/update_api_key.handler
-    description: "Update an API key"
+    description: "Update an API key or keys"
     memorySize: 128
     timeout: 5
     events:
       - http:
           path: "${self:custom.url_base_path}/{id}/{timestamp}"
           method: put
+      - http:
+          path: "${self:custom.url_base_path}/{id}/{timestamp}/active"
+          method: put
+      - http:
+          path: "${self:custom.url_base_path}/{id}/{timestamp}/inactive"
+          method: put
+      - http:
+          path: "${self:custom.url_base_path}/{id}/{timestamp}/ttl"
+          method: put
+
+
 
   DeleteKey:
     handler: handlers/delete_api_key.handler
-    description: "delete an API key"
+    description: "Disable an API key or keys"
     memorySize: 128
     timeout: 5
     events:
       - http:
           path: "${self:custom.url_base_path}/{id}"
+          method: delete
+      - http:
+          path: "${self:custom.url_base_path}/{id}/{timestamp}"
           method: delete
 
 resources:
