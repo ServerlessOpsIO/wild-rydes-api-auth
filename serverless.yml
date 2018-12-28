@@ -13,6 +13,7 @@ custom:
     dockerizePip: false
 
   url_base_path: /key
+  auth_id_source: "method.request.header.x-api-key"
   ddb_hash_key: "Id"
   ddb_range_key: "DateTime"
 
@@ -43,8 +44,18 @@ provider:
         - Fn::GetAtt:
             - KeyTable
             - Arn
+    - Effect: "Allow"
+      Action:
+        - apigateway:GET
+      Resource: '*'
 
 functions:
+  Authorizer:
+    handler: handlers/authorizer.handler
+    description: "Custom authorizer function"
+    memorySize: 128
+    timeout: 5
+
   CreateKey:
     handler: handlers/create_api_key.handler
     description: "Create an API key"

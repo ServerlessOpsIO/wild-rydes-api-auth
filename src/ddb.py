@@ -23,8 +23,15 @@ class DynamoDBTableBaseError(Exception):
     '''Base exception class'''
 
 
+class DynamoDBTableCheckItemError(DynamoDBTableBaseError):
+    '''Error checking item existence in dynamoDB'''
+    msg = "Error checking item existence in DynamoDB"
+    def __init__(self, message=msg) -> None:
+        super().__init__(message)
+
+
 class DynamoDBTableGetItemError(DynamoDBTableBaseError):
-    '''Error Putting item in dynamoDB'''
+    '''Error Getting item in dynamoDB'''
     msg = "Unable to get item from DynamoDB"
     def __init__(self, message=msg) -> None:
         super().__init__(message)
@@ -38,7 +45,7 @@ class DynamoDBTablePutItemError(DynamoDBTableBaseError):
 
 
 class DynamoDBTableQueryItemError(DynamoDBTableBaseError):
-    '''Error Putting item in dynamoDB'''
+    '''Error querying item in dynamoDB'''
     msg = "Unable to query item in DynamoDB"
     def __init__(self, message=msg) -> None:
         super().__init__(message)
@@ -77,7 +84,7 @@ class DynamoDBTable:
             )
         except Exception as e:
             _logger.exception(e)
-            raise DynamoDBTableQueryItemError
+            raise DynamoDBTableCheckItemError
 
         return resp.get('Count') > 0
 
@@ -107,4 +114,28 @@ class DynamoDBTable:
         except Exception as e:
             _logger.exception(e)
             raise DynamoDBTablePutItemError
+
+    def query_by_item_id(self, item_id, start_key: dict = {}) -> list:
+        '''query for item'''
+        item_list = []
+
+        query_kwargs = {
+            'KeyConditionExpression': Key(self._hash_key).eq(item_id)
+        }
+
+        if bool(start_key):
+            query_kwargs['ExclusiveStartKey'] = start_key
+
+        try:
+            resp = self._ddb_table.query(**query_kwargs)
+        except Exception as e:
+            _logger.exception(e)
+            raise DynamoDBTableQueryItemError
+
+        item_list += resp.get('Items')
+
+        if bool(resp.get('LastEvaluatedKey')):
+            item_list += self.query_by_item_id(item_id, resp.get('LastEvaluatedKey'))
+
+        return item_list
 
