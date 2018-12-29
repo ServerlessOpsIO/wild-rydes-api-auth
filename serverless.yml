@@ -132,3 +132,14 @@ resources:
           - AttributeName: "${self:custom.ddb_range_key}"
             AttributeType: "N"
         BillingMode: PAY_PER_REQUEST
+
+    AuthorizerArnSsmParam:
+      Type: "AWS::SSM::Parameter"
+      Properties:
+        Name: "/${self:service}/${self:provider.stage}/Arn"
+        Type: String
+        Value:
+          Fn::GetAtt:
+            - AuthorizerLambdaFunction
+            - Arn
+
